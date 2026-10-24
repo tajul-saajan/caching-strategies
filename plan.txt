@@ -1,0 +1,7 @@
+in this project, we are planning to implement different caching strategies and
+their mitigation techniques.
+
+we will use sqlite as DB and Redis as cache.
+
+your job is to setup DB and Cache for me. I will implement myself different strategies
+and solutions
