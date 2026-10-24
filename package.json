@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "cache-aside": "for f in strategies/read/cache-aside/scenarios/0*.js; do node \"$f\"; done"
   },
   "keywords": [],
   "author": "",

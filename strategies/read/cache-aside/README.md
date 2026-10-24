@@ -176,3 +176,40 @@ Mitigations to explore: short Redis timeouts, fail-open to DB, circuit breaker a
 | Hot key         | Skewed traffic to one key                 | Single Redis shard overload|
 | Cold start      | Empty cache after deploy / flush          | Temporary DB spike         |
 | Cache down      | Redis error / latency                     | Outage or slow requests    |
+
+## Implementation
+
+[`productService.js`](productService.js) is a deliberately naive cache-aside: `getProduct(id)` and
+`updateProduct(id, fields)`, with no protection against any of the problems above. It counts cache
+hits, misses and DB reads in `stats`. `getProduct` takes `dbDelayMs` to simulate a slow query so
+races and stampedes are visible against a fast local SQLite.
+
+## Scenarios
+
+Each script in [`scenarios/`](scenarios) reproduces one problem against the naive service. Run one:
+
+```sh
+node strategies/read/cache-aside/scenarios/03-stampede.js
+```
+
+or all of them:
+
+```sh
+npm run cache-aside
+```
+
+| Script               | Reproduces                                     | What to look for                     |
+| -------------------- | ---------------------------------------------- | ------------------------------------ |
+| `01-happy-path.js`   | Normal miss-then-hit                           | 1 DB read, rest from cache           |
+| `02-stale-data.js`   | Read/write race; lost invalidation             | `STALE`: cache price ≠ DB price      |
+| `03-stampede.js`     | 100 concurrent reads on a missing key          | 100 DB reads instead of 1            |
+| `04-penetration.js`  | Repeated reads of a non-existent ID            | Every request hits the DB            |
+| `05-avalanche.js`    | 100 keys with the same TTL expire together     | 0 DB reads, then 100 at once         |
+| `06-hot-key.js`      | 90% of traffic on one key with a short TTL     | ~90 DB reads every time it expires   |
+| `07-cold-start.js`   | Traffic on an empty cache                      | DB reads drop batch by batch         |
+| `08-cache-down.js`   | Redis paused (`CLIENT PAUSE`), then closed     | 2s request; failed request           |
+
+Each script clears `product:*` keys and resets seed prices first, so runs are repeatable. Once a
+mitigation is in place, the same scenario should show the problem gone.
+
+Note: `08-cache-down.js` pauses **all** clients of the local Redis for 2 seconds.
