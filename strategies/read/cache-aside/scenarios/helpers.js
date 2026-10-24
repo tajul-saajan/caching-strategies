@@ -4,6 +4,8 @@ import { stats, resetStats } from '../productService.js';
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+let startedAt;
+
 // Clear product keys and counters, and restore seed prices so every run starts the same.
 export async function setup(title) {
   console.log(`\n=== ${title} ===\n`);
@@ -12,6 +14,7 @@ export async function setup(title) {
     if (keys.length) await redis.del(keys);
   }
   await Product.update({ price: sequelize.literal('id * 10') }, { where: {} });
+  startedAt = performance.now();
 }
 
 export function printStats() {
@@ -20,6 +23,7 @@ export function printStats() {
 }
 
 export async function teardown() {
+  console.log(`\ntook ${(performance.now() - startedAt).toFixed(0)}ms`);
   if (redis.isOpen) await redis.quit();
   await sequelize.close();
 }
